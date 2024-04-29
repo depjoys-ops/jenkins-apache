@@ -1,0 +1,58 @@
+pipeline {
+    agent any
+
+    environment {
+        LOG_FILE = '/var/log/apache2/error.log'
+    }
+
+    stages {
+
+        stage('Install Apache') {
+            steps {
+                script {
+                    sh 'sudo apt-get update'
+                    sh 'sudo apt-get install -y apache2'
+                    sh 'sudo systemctl start apache2'
+                }
+            }
+        }
+
+
+        stage('Check Started Apache') {
+            steps {
+                script {
+                    sh 'sudo systemctl status apache2 | cat'
+                }
+            }
+        }
+
+        stage('Check Apache Logs') {
+            steps {
+                script {
+                    def errors = sh(script: "sudo grep -E ' 4[0-9]{2} | 5[0-9]{2} ' ${env.LOG_FILE} | wc -l", returnStdout: true).trim()
+                    def errorCount = errors.toInteger()
+
+                    if (errorCount > 0) {
+                        error "Found ${errorCount} 4xx or 5xx errors in Apache HTTP Server logs"
+                    }
+                }
+            }
+        }
+
+        stage('Stop Apache') {
+            steps {
+                script {
+                    sh 'sudo systemctl stop apache2'
+                }
+            }
+        }
+        
+        stage('Check Stopped Apache') {
+            steps {
+                script {
+                    sh 'sudo systemctl status apache2 | cat'
+                }
+            }
+        }
+    }
+}
